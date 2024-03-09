@@ -3,12 +3,14 @@ package braze
 import (
 	"context"
 	"net/http"
+	"time"
 )
 
 const (
-	messagingMessagesSendPath         = "/messages/send"
-	messagingTransactionalSendPath    = "/transactional/v1/campaigns/%s/send"
-	messagingCampaignsTriggerSendPath = "/campaigns/trigger/send"
+	messagingMessagesSendPath          = "/messages/send"
+	messagingTransactionalSendPath     = "/transactional/v1/campaigns/%s/send"
+	messagingCampaignsTriggerSendPath  = "/campaigns/trigger/send"
+	messagingMessageScheduleCreatePath = "/messages/schedule/create"
 )
 
 var (
@@ -30,6 +32,7 @@ var (
 type MessagingEndpoint interface {
 	SendMessages(context.Context, *SendMessagesRequest) (*Response, error)
 	TriggerCampaign(context.Context, *TriggerCampaignRequest) (*Response, error)
+	CreateScheduleMessages(ctx context.Context, r *CreateScheduleMessageRequest) (*Response, error)
 }
 
 var _ MessagingEndpoint = (*MessagingService)(nil)
@@ -66,14 +69,38 @@ func (s *MessagingService) TriggerCampaign(ctx context.Context, r *TriggerCampai
 	return &res, nil
 }
 
+func (s *MessagingService) CreateScheduleMessages(ctx context.Context, r *CreateScheduleMessageRequest) (*Response, error) {
+	req, err := s.client.http.newRequest(http.MethodPost, messagingMessageScheduleCreatePath, r)
+	if err != nil {
+		return nil, err
+	}
+
+	var res Response
+	if err := s.client.http.do(ctx, req, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 type SendMessagesRequest struct {
-	Messages *Messages
+	Messages *Messages `json:"messages,omitempty"`
 }
 
 type Messages struct {
-	AndroidPush *AndroidPushMessage
-	ApplePush   *ApplePushMessage
-	Email       *EmailMessage
+	AndroidPush *AndroidPushMessage `json:"android_push,omitempty"`
+	ApplePush   *ApplePushMessage   `json:"apple_push,omitempty"`
+	Email       *EmailMessage       `json:"email,omitempty"`
+}
+
+type CreateScheduleMessageRequest struct {
+	Schedule *Schedule `json:"schedule,omitempty"`
+	Messages *Messages `json:"messages,omitempty"`
+}
+
+type Schedule struct {
+	// Time to send the message (required, datetime as ISO 8601 string).
+	Time *time.Time `json:"time,omitempty"`
 }
 
 // https://www.braze.com/docs/api/objects_filters/messaging/android_object/
